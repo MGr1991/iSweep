@@ -61,7 +61,7 @@ Eine detaillierte Schritt-für-Schritt-Anleitung mit allen Schritten zum Aktivie
 ### Projekt mit Xcode kompilieren:
 ```bash
 # Repository klonen
-git clone https://github.com/<username>/iSweep.git
+git clone https://github.com/MGr1991/iSweep.git
 cd iSweep
 
 # In Xcode öffnen
