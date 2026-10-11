@@ -25,8 +25,10 @@
 - Direkte Batch-Bereinigung und Freigabe-Zähler.
 
 ### 4. 📦 Vollständiger App-Deinstaller (`AppCleanerView`)
-- Listet alle installierten Programme übersichtlich auf.
-- Findet automatisch alle verknüpften Dateien in `~/Library/Application Support`, `~/Library/Caches`, `~/Library/Preferences`, etc.
+- **macOS & iPadOS Universell:** Listet alle installierten Programme und Apps übersichtlich auf.
+- **Umfassender iPad-App-Katalog:** Erkennt und listet über 40 iPadOS-Apps (Kreativ- & Zeichen-Apps, Produktivität, Streaming, Messenger, System-Apps) mit Speichergröße und individuellen Icons.
+- **1-Tap iPad-Deinstallation:** Direkter Absprung in die native iOS/iPadOS-Speicherverwaltung (`App-Prefs:General&path=STORAGE_MGMT`) zur rückstandslosen Deinstallation mit einem Fingertipp sowie gezielter Cache- und Container-Bereinigung.
+- **Tiefe Mac-Bereinigung:** Findet automatisch alle verknüpften Dateien in `~/Library/Application Support`, `~/Library/Caches`, `~/Library/Preferences`, `~/Library/Containers`, etc.
 - **Sicherheits-Whitelist:** Schütze wichtige System- und Entwicklertools vor versehentlichem Löschen per Schutzschild-Badge.
 
 ### 5. 📁 Visueller Speicher-Scanner (`FolderScannerMainView`)
