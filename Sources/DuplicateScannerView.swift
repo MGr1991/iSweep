@@ -1,6 +1,11 @@
 import SwiftUI
 #if os(macOS)
 import AppKit
+#else
+import UIKit
+import AudioToolbox
+import UniformTypeIdentifiers
+#endif
 import CryptoKit
 
 // MARK: - Duplicate Models
@@ -66,9 +71,13 @@ final class DuplicateScannerViewModel: ObservableObject {
     }
     
     init() {
-        let downloads = URL(fileURLWithPath: ("~/Downloads" as NSString).expandingTildeInPath)
-        selectedDirectoryURL = downloads
-        scanDirectory(url: downloads)
+        #if os(macOS)
+        let dir = URL(fileURLWithPath: ("~/Downloads" as NSString).expandingTildeInPath)
+        #else
+        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        #endif
+        selectedDirectoryURL = dir
+        scanDirectory(url: dir)
     }
     
     func scanDirectory(url: URL) {
@@ -194,6 +203,7 @@ final class DuplicateScannerViewModel: ObservableObject {
         
         guard !urlsToDelete.isEmpty else { return }
         
+        #if os(macOS)
         NSWorkspace.shared.recycle(urlsToDelete) { [weak self] _, error in
             guard let self = self else { return }
             DispatchQueue.main.async {
@@ -209,6 +219,19 @@ final class DuplicateScannerViewModel: ObservableObject {
                 self.totalWastedBytes = self.groups.reduce(0) { $0 + $1.wastedBytes }
             }
         }
+        #else
+        for u in urlsToDelete {
+            try? FileManager.default.removeItem(at: u)
+        }
+        CleanStatisticsManager.shared.recordReclaimed(bytes: totalReclaimed)
+        AudioServicesPlaySystemSound(1108)
+        let deletedSet = Set(urlsToDelete)
+        for gIdx in self.groups.indices {
+            self.groups[gIdx].items.removeAll { deletedSet.contains($0.url) }
+        }
+        self.groups.removeAll { $0.items.count <= 1 }
+        self.totalWastedBytes = self.groups.reduce(0) { $0 + $1.wastedBytes }
+        #endif
     }
 }
 
@@ -426,10 +449,17 @@ struct DuplicateScannerView: View {
                     }
                     .buttonStyle(.plain)
                     
+                    #if os(macOS)
                     Image(nsImage: NSWorkspace.shared.icon(forFile: item.url.path))
                         .resizable()
                         .scaledToFit()
                         .frame(width: 24, height: 24)
+                    #else
+                    Image(systemName: "doc.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.blue)
+                        .frame(width: 24, height: 24)
+                    #endif
                     
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 6) {
@@ -468,6 +498,7 @@ struct DuplicateScannerView: View {
                         .font(.caption.bold())
                         .foregroundColor(.secondary)
                     
+                    #if os(macOS)
                     Button {
                         NSWorkspace.shared.activateFileViewerSelecting([item.url])
                     } label: {
@@ -476,6 +507,7 @@ struct DuplicateScannerView: View {
                             .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
+                    #endif
                 }
                 .padding(.vertical, 4)
                 .hoverGlowRow(cornerRadius: 6)
@@ -492,4 +524,3 @@ struct DuplicateScannerView: View {
         }
     }
 }
-#endif

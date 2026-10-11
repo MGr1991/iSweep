@@ -1,6 +1,9 @@
-#if os(macOS)
 import SwiftUI
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import LocalAuthentication
 
 struct DeletedAppRecord: Identifiable, Codable, Equatable {
@@ -354,6 +357,12 @@ final class OrphanScannerViewModel: ObservableObject {
                 }
             }
         }
+        #else
+        for g in self.groups {
+            for it in g.items where urls.contains(it.url) {
+                self.deleteItem(it, from: g)
+            }
+        }
         #endif
     }
     
@@ -387,12 +396,15 @@ final class OrphanScannerViewModel: ObservableObject {
             var outURL: NSURL?
             try FileManager.default.trashItem(at: url, resultingItemURL: &outURL)
             DispatchQueue.main.async {
+                #if os(macOS)
                 _ = try? Process.run(URL(fileURLWithPath: "/usr/bin/killall"), arguments: ["Dock"])
+                #endif
                 completion(nil)
             }
             return
         } catch {}
         
+        #if os(macOS)
         NSWorkspace.shared.recycle([url]) { _, error in
             if let err = error as NSError? {
                 DispatchQueue.main.async {
@@ -428,6 +440,14 @@ final class OrphanScannerViewModel: ObservableObject {
                 }
             }
         }
+        #else
+        do {
+            try FileManager.default.removeItem(at: url)
+            DispatchQueue.main.async { completion(nil) }
+        } catch {
+            DispatchQueue.main.async { completion(error) }
+        }
+        #endif
     }
 }
 
@@ -640,9 +660,7 @@ struct OrphanScannerView: View {
                     }
                 }
                 
-                #if os(macOS)
                 SidebarTrashSectionView()
-                #endif
                 
                 Section("Übersicht") {
                     Text("\(viewModel.sortedGroups.count) gelöschte Apps")
@@ -668,11 +686,9 @@ struct OrphanScannerView: View {
         } detail: {
             detailBody
                 .toolbar {
-                    #if os(macOS)
                     ToolbarItem(placement: .primaryAction) {
                         TrashQuickBarButton()
                     }
-                    #endif
                     
                     ToolbarItem(placement: .primaryAction) {
                         SelectionModeToggleButton(isSelectionMode: isSelectionMode) {
@@ -1148,4 +1164,3 @@ struct OrphanScannerView: View {
     }
 }
 
-#endif

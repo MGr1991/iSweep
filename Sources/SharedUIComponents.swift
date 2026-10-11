@@ -494,9 +494,9 @@ final class SystemMemoryManager: ObservableObject {
     }
     
     func optimizeMemory() {
-        #if os(macOS)
         guard !isPurging else { return }
         isPurging = true
+        #if os(macOS)
         DispatchQueue.global(qos: .userInitiated).async {
             _ = try? Process.run(URL(fileURLWithPath: "/usr/sbin/purge"), arguments: [])
             Thread.sleep(forTimeInterval: 0.8)
@@ -504,6 +504,12 @@ final class SystemMemoryManager: ObservableObject {
                 self.refreshMemory()
                 self.isPurging = false
             }
+        }
+        #else
+        URLCache.shared.removeAllCachedResponses()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.refreshMemory()
+            self.isPurging = false
         }
         #endif
     }
@@ -836,7 +842,6 @@ struct StorageItemInspectorView: View {
 
 // MARK: - Sidebar Trash Section View
 
-#if os(macOS)
 struct SidebarTrashSectionView: View {
     @ObservedObject private var trashManager = MacTrashManager.shared
     
@@ -874,7 +879,6 @@ struct SidebarTrashSectionView: View {
         }
     }
 }
-#endif
 
 
 // MARK: - Onboarding Notification

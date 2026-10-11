@@ -1,8 +1,12 @@
 import SwiftUI
 #if os(macOS)
 import AppKit
+#else
+import UIKit
+import AudioToolbox
+#endif
 
-// MARK: - Mac Trash Manager (macOS)
+// MARK: - Trash Manager (macOS & iPadOS)
 
 @MainActor
 final class MacTrashManager: ObservableObject {
@@ -39,6 +43,7 @@ final class MacTrashManager: ObservableObject {
     
     func refreshTrashInfo() {
         guard !isEmptying else { return }
+        #if os(macOS)
         DispatchQueue.global(qos: .userInitiated).async {
             let countScript = "tell application \"Finder\" to count every item of trash"
             let p = Process()
@@ -87,9 +92,32 @@ final class MacTrashManager: ObservableObject {
                 self.totalSizeBytes = max(0, sizeBytes)
             }
         }
+        #else
+        DispatchQueue.global(qos: .userInitiated).async {
+            let fm = FileManager.default
+            var count = 0
+            var sizeBytes: Int64 = 0
+            
+            if let trashURL = try? fm.url(for: .trashDirectory, in: .userDomainMask, appropriateFor: nil, create: false),
+               let enumerator = fm.enumerator(at: trashURL, includingPropertiesForKeys: [.fileSizeKey], options: [.skipsSubdirectoryDescendants]) {
+                while let itemURL = enumerator.nextObject() as? URL {
+                    count += 1
+                    if let res = try? itemURL.resourceValues(forKeys: [.fileSizeKey]), let s = res.fileSize {
+                        sizeBytes += Int64(s)
+                    }
+                }
+            }
+            
+            DispatchQueue.main.async {
+                self.itemCount = count
+                self.totalSizeBytes = sizeBytes
+            }
+        }
+        #endif
     }
     
     func openTrashInFinder() {
+        #if os(macOS)
         DispatchQueue.global(qos: .userInitiated).async {
             let script = "tell application \"Finder\"\nactivate\nopen trash\nend tell"
             let p = Process()
@@ -98,6 +126,11 @@ final class MacTrashManager: ObservableObject {
             try? p.run()
             p.waitUntilExit()
         }
+        #else
+        if let url = URL(string: "shareddocuments://") {
+            UIApplication.shared.open(url)
+        }
+        #endif
     }
     
     func promptEmptyTrash() {
@@ -112,6 +145,7 @@ final class MacTrashManager: ObservableObject {
         let prevSize = formattedSize
         let prevSizeBytes = totalSizeBytes
         
+        #if os(macOS)
         DispatchQueue.global(qos: .userInitiated).async {
             let script = """
             tell application "Finder"
@@ -130,9 +164,7 @@ final class MacTrashManager: ObservableObject {
             try? p.run()
             p.waitUntilExit()
             
-            // Allow Finder time to finish deleting
             Thread.sleep(forTimeInterval: 0.5)
-            
             _ = try? Process.run(URL(fileURLWithPath: "/usr/bin/killall"), arguments: ["Dock"])
             
             DispatchQueue.main.async {
@@ -156,10 +188,42 @@ final class MacTrashManager: ObservableObject {
                 }
             }
         }
+        #else
+        DispatchQueue.global(qos: .userInitiated).async {
+            let fm = FileManager.default
+            if let trashURL = try? fm.url(for: .trashDirectory, in: .userDomainMask, appropriateFor: nil, create: false),
+               let contents = try? fm.contentsOfDirectory(at: trashURL, includingPropertiesForKeys: nil) {
+                for file in contents {
+                    try? fm.removeItem(at: file)
+                }
+            }
+            
+            DispatchQueue.main.async {
+                self.isEmptying = false
+                self.itemCount = 0
+                self.totalSizeBytes = 0
+                self.refreshTrashInfo()
+                if prevSizeBytes > 0 {
+                    CleanStatisticsManager.shared.recordReclaimed(bytes: prevSizeBytes)
+                }
+                
+                AudioServicesPlaySystemSound(1108)
+                self.statusBannerMessage = prevCount > 0
+                    ? "🗑️ Papierkorb erfolgreich entleert (\(prevCount) \(prevCount == 1 ? "Objekt" : "Objekte") / \(prevSize) freigegeben)"
+                    : "🗑️ Papierkorb erfolgreich entleert"
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
+                    if self.statusBannerMessage?.contains("Papierkorb") == true {
+                        self.statusBannerMessage = nil
+                    }
+                }
+            }
+        }
+        #endif
     }
 }
 
-// MARK: - Trash Quick Bar Button (macOS)
+// MARK: - Trash Quick Bar Button
 
 struct TrashQuickBarButton: View {
     @ObservedObject private var trashManager = MacTrashManager.shared
@@ -174,7 +238,8 @@ struct TrashQuickBarButton: View {
         ) {
             trashManager.promptEmptyTrash()
         }
-        .help("Mac-Papierkorb entleeren (⌘⇧⌫)")
+        #if os(macOS)
+        .help("Papierkorb entleeren (⌘⇧⌫)")
+        #endif
     }
 }
-#endif

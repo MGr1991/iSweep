@@ -1,6 +1,10 @@
 import SwiftUI
 #if os(macOS)
 import AppKit
+#else
+import UIKit
+import AudioToolbox
+#endif
 
 // MARK: - Smart Clean Models
 
@@ -67,13 +71,28 @@ final class SmartCleanerViewModel: ObservableObject {
         categories = []
         
         Task.detached {
+            #if os(macOS)
             let scanDefs: [(id: String, title: String, subtitle: String, icon: String, color: Color, path: String?)] = [
                 ("caches", "Benutzer- & App-Caches", "Temporäre Daten, Web- & App-Caches", "bolt.horizontal.circle.fill", .orange, "~/Library/Caches"),
                 ("xcode", "Xcode DerivedData", "Alte Build-Artefakte & Indizes", "hammer.circle.fill", .indigo, "~/Library/Developer/Xcode/DerivedData"),
                 ("logs", "Diagnose- & System-Logs", "Alte Fehlerprotokolle & Berichte", "doc.text.magnifyingglass", .blue, "~/Library/Logs"),
                 ("mail", "Mail Downloads", "Heruntergeladene E-Mail-Anhänge", "envelope.circle.fill", .teal, "~/Library/Containers/com.apple.mail/Data/Library/Mail Downloads"),
-                ("trash", "Papierkorb", "Dateien im macOS Papierkorb", "trash.circle.fill", .red, "~/.Trash")
+                ("trash", "Papierkorb", "Dateien im Papierkorb", "trash.circle.fill", .red, "~/.Trash")
             ]
+            #else
+            let cachesPath = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.path
+            let tmpPath = NSTemporaryDirectory()
+            let docsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.path
+            let appSupportPath = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.path
+            let trashPath = (try? FileManager.default.url(for: .trashDirectory, in: .userDomainMask, appropriateFor: nil, create: false))?.path
+            let scanDefs: [(id: String, title: String, subtitle: String, icon: String, color: Color, path: String?)] = [
+                ("caches", "App- & Web-Caches", "Temporäre Caches & Netzwerk-Puffer", "bolt.horizontal.circle.fill", .orange, cachesPath),
+                ("tmp", "Temporäre Zwischendateien", "Kurzzeitige Zwischendaten & Puffer", "clock.badge.xmark.fill", .indigo, tmpPath),
+                ("docs", "Dokumente & Downloads", "Lokale Dokumente & Downloads", "arrow.down.circle.fill", .blue, docsPath),
+                ("appsupport", "App Support-Daten", "Lokale App-Unterstützungsdaten", "folder.badge.gearshape", .teal, appSupportPath),
+                ("trash", "Papierkorb", "Dateien im Papierkorb", "trash.circle.fill", .red, trashPath)
+            ]
+            #endif
             
             var scannedCategories: [SmartCleanCategory] = []
             let fm = FileManager.default
@@ -164,7 +183,11 @@ final class SmartCleanerViewModel: ObservableObject {
             
             await MainActor.run {
                 CleanStatisticsManager.shared.recordReclaimed(bytes: totalToReclaim)
+                #if os(macOS)
                 NSSound(named: "Trash")?.play()
+                #else
+                AudioServicesPlaySystemSound(1108)
+                #endif
                 self.lastCleanedBytes = totalToReclaim
                 self.isCleaning = false
                 self.hasCleaned = true
@@ -447,10 +470,17 @@ struct SmartCleanerView: View {
                     Divider()
                     ForEach(category.items.prefix(8)) { item in
                         HStack(spacing: 10) {
+                            #if os(macOS)
                             Image(nsImage: NSWorkspace.shared.icon(forFile: item.url.path))
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: 16, height: 16)
+                            #else
+                            Image(systemName: item.isDirectory ? "folder.fill" : item.category.iconName)
+                                .font(.system(size: 14))
+                                .foregroundColor(item.isDirectory ? .blue : .secondary)
+                                .frame(width: 16, height: 16)
+                            #endif
                             Text(item.name)
                                 .font(.caption)
                                 .lineLimit(1)
@@ -488,4 +518,3 @@ struct SmartCleanerView: View {
         )
     }
 }
-#endif

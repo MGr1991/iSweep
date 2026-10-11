@@ -57,6 +57,34 @@ struct FolderScannerMainView: View {
                     Button(action: { scanSystemFolder(path: "~/Library/Containers/com.apple.mail/Data/Library/Mail Downloads") }) {
                         Label("Mail-Anhänge", systemImage: "envelope")
                     }
+                    #else
+                    Button(action: {
+                        if let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+                            viewModel.scanFolder(url: docs)
+                        }
+                    }) {
+                        Label("Dokumente & Dateien", systemImage: "doc.on.doc")
+                    }
+                    Button(action: {
+                        if let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
+                            viewModel.scanFolder(url: caches)
+                        }
+                    }) {
+                        Label("App- & Web-Caches", systemImage: "bolt.horizontal.circle")
+                    }
+                    Button(action: {
+                        let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+                        viewModel.scanFolder(url: tmp)
+                    }) {
+                        Label("Temporäre Daten", systemImage: "clock.badge.xmark")
+                    }
+                    Button(action: {
+                        if let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+                            viewModel.scanFolder(url: appSupport)
+                        }
+                    }) {
+                        Label("App Support & Daten", systemImage: "folder.badge.gearshape")
+                    }
                     #endif
                     
                     Button(action: {
@@ -71,9 +99,7 @@ struct FolderScannerMainView: View {
                     }
                 }
                 
-                #if os(macOS)
                 SidebarTrashSectionView()
-                #endif
                 
                 if let currentURL = viewModel.currentFolderURL {
                     Section("Aktueller Pfad") {
@@ -312,11 +338,7 @@ struct FolderScannerMainView: View {
             .navigationTitle(viewModel.currentFolderURL?.lastPathComponent ?? "Details")
             .searchable(text: $viewModel.searchText, prompt: "Dateien filtern…")
             .toolbar {
-                #if os(macOS)
-                ToolbarItem(placement: .primaryAction) {
-                    TrashQuickBarButton()
-                }
-                #else
+                #if !os(macOS)
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         ApplePencilManager.shared.showPencilCanvasSheet = true
@@ -326,7 +348,10 @@ struct FolderScannerMainView: View {
                 }
                 #endif
 
-                #if os(macOS)
+                ToolbarItem(placement: .primaryAction) {
+                    TrashQuickBarButton()
+                }
+
                 ToolbarItem(placement: .primaryAction) {
                     Button(role: .destructive) {
                         MacTrashManager.shared.promptEmptyTrash()
@@ -334,7 +359,6 @@ struct FolderScannerMainView: View {
                         Label("Papierkorb leeren", systemImage: "trash.slash.fill")
                     }
                 }
-                #endif
 
                 ToolbarItem(placement: .primaryAction) {
                     SelectionModeToggleButton(isSelectionMode: isSelectionMode) {

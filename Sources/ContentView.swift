@@ -4,15 +4,13 @@ struct ContentView: View {
     @ObservedObject private var themeManager = ThemeManager.shared
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @State private var showOnboarding: Bool = false
-    #if os(macOS)
     @ObservedObject private var trashManager = MacTrashManager.shared
-    #else
+    #if !os(macOS)
     @ObservedObject private var applePencilManager = ApplePencilManager.shared
     #endif
 
     var body: some View {
         TabView {
-            #if os(macOS)
             SmartCleanerView()
                 .tabItem {
                     Label("Smart-Bereinigung", systemImage: "sparkles")
@@ -27,7 +25,6 @@ struct ContentView: View {
                 .tabItem {
                     Label("Verwaiste Reste", systemImage: "sparkles.rectangle.stack")
                 }
-            #endif
             
             AppCleanerView()
                 .tabItem {
@@ -40,7 +37,6 @@ struct ContentView: View {
                 }
         }
         .preferredColorScheme(themeManager.colorScheme)
-        #if os(macOS)
         .overlay(alignment: .top) {
             if let msg = trashManager.statusBannerMessage {
                 HStack(spacing: 8) {
@@ -66,9 +62,11 @@ struct ContentView: View {
             Button("Papierkorb endgültig leeren", role: .destructive) {
                 trashManager.emptyTrash()
             }
+            #if os(macOS)
             Button("Im Finder öffnen") {
                 trashManager.openTrashInFinder()
             }
+            #endif
             Button("Abbrechen", role: .cancel) { }
         } message: {
             if trashManager.itemCount > 0 {
@@ -80,6 +78,7 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .promptEmptyTrash)) { _ in
             trashManager.promptEmptyTrash()
         }
+        #if os(macOS)
         .onReceive(NotificationCenter.default.publisher(for: .openTrashInFinder)) { _ in
             trashManager.openTrashInFinder()
         }

@@ -46,7 +46,6 @@ class AppCleanerViewModel: ObservableObject {
         return list.filter { $0.name.localizedCaseInsensitiveContains(q) }
     }
     
-    #if os(macOS)
     @Published var installedApps: [StorageItem] = []
     
     var sortedApps: [StorageItem] {
@@ -110,6 +109,7 @@ class AppCleanerViewModel: ObservableObject {
         self.isScanning = true
         Task.detached {
             let fileManager = FileManager.default
+            #if os(macOS)
             let appDirs: [String]
             if let customDir = customDir {
                 appDirs = [customDir.path]
@@ -123,16 +123,32 @@ class AppCleanerViewModel: ObservableObject {
                     (NSString(string: "~/Downloads").expandingTildeInPath)
                 ]
             }
+            #else
+            let appDirs: [String]
+            if let customDir = customDir {
+                appDirs = [customDir.path]
+            } else {
+                let bundleDir = Bundle.main.bundleURL.deletingLastPathComponent().path
+                let docsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.path ?? ""
+                let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.path ?? ""
+                appDirs = [bundleDir, "/Applications", docsDir, appSupport].filter { !$0.isEmpty }
+            }
+            #endif
             var apps: [StorageItem] = []
             
             for dir in appDirs {
                 let url = URL(fileURLWithPath: dir)
                 if let enumerator = fileManager.enumerator(at: url, includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey, .creationDateKey, .contentModificationDateKey], options: [.skipsHiddenFiles, .skipsSubdirectoryDescendants]) {
                     while let obj = enumerator.nextObject(), let appURL = obj as? URL {
-                        if appURL.pathExtension == "app" {
+                        var isApp = appURL.pathExtension == "app"
+                        #if !os(macOS)
+                        var isDir: ObjCBool = false
+                        if fileManager.fileExists(atPath: appURL.path, isDirectory: &isDir), isDir.boolValue {
+                            isApp = true
+                        }
+                        #endif
+                        if isApp {
                             if let res = try? appURL.resourceValues(forKeys: [.creationDateKey, .contentModificationDateKey]) {
-                                // Calculate size asynchronously later, for now set to 0 to prevent blocking the UI for minutes!
-                                // Large apps like Xcode take far too long to recursively enumerate on the main load
                                 apps.append(StorageItem(url: appURL, isDirectory: true, size: 0, creationDate: res.creationDate, modificationDate: res.contentModificationDate))
                             }
                         }
@@ -147,7 +163,6 @@ class AppCleanerViewModel: ObservableObject {
             }
         }
     }
-    #endif
 
     @Published var foundItems: [StorageItem] = []
     @Published var isScanning = false
@@ -335,13 +350,11 @@ class AppCleanerViewModel: ObservableObject {
     }
     
     func deleteApps(urls: Set<URL>) {
-        #if os(macOS)
         let appsToDelete = self.installedApps.filter { urls.contains($0.url) }
         guard !appsToDelete.isEmpty else { return }
         for app in appsToDelete {
             self.deleteItem(app)
         }
-        #endif
     }
     
     func deleteFoundItems(urls: Set<URL>) {
@@ -371,7 +384,6 @@ class AppCleanerViewModel: ObservableObject {
         #endif
     }
     
-    #if os(macOS)
     func scanMacAppLeftovers(appURL: URL) {
         self.selectedAppURL = appURL
         self.isScanning = true
@@ -388,6 +400,7 @@ class AppCleanerViewModel: ObservableObject {
             
             var items: [StorageItem] = []
             
+            #if os(macOS)
             let libraryPaths = [
                 "~/Library/Application Support/\(bundleIdentifier)",
                 "~/Library/Application Support/\(appName)",
@@ -396,6 +409,16 @@ class AppCleanerViewModel: ObservableObject {
                 "~/Library/Preferences/\(bundleIdentifier).plist",
                 "~/Library/Containers/\(bundleIdentifier)"
             ]
+            #else
+            let cachesDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.path ?? ""
+            let appSupportDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.path ?? ""
+            let libraryPaths = [
+                "\(cachesDir)/\(bundleIdentifier)",
+                "\(cachesDir)/\(appName)",
+                "\(appSupportDir)/\(bundleIdentifier)",
+                "\(appSupportDir)/\(appName)"
+            ]
+            #endif
             
             for path in libraryPaths {
                 let expanded = NSString(string: path).expandingTildeInPath
@@ -432,7 +455,6 @@ class AppCleanerViewModel: ObservableObject {
             }
         }
     }
-    #endif
 
     func scanLeftoversInFolder(name query: String, searchRoot url: URL) {
         guard !query.trimmingCharacters(in: .whitespaces).isEmpty else { return }
@@ -542,16 +564,12 @@ struct AppCleanerView: View {
                     }
                 }
                 
-                #if os(macOS)
                 SidebarTrashSectionView()
-                #endif
                 
                 Section("Übersicht") {
-                    #if os(macOS)
                     Text("\(viewModel.installedApps.count) Apps installiert")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    #endif
                     if !viewModel.foundItems.isEmpty {
                         Text("\(viewModel.foundItems.count) Reste gefunden")
                             .font(.caption)
@@ -574,13 +592,10 @@ struct AppCleanerView: View {
         } detail: {
             contentBody
                 .toolbar {
-                    #if os(macOS)
                     ToolbarItem(placement: .primaryAction) {
                         TrashQuickBarButton()
                     }
-                    #endif
                     
-                    #if os(macOS)
                     ToolbarItem(placement: .primaryAction) {
                         Button(role: .destructive) {
                             MacTrashManager.shared.promptEmptyTrash()
@@ -588,7 +603,6 @@ struct AppCleanerView: View {
                             Label("Papierkorb leeren", systemImage: "trash.slash.fill")
                         }
                     }
-                    #endif
                     
                     ToolbarItem(placement: .primaryAction) {
                         SelectionModeToggleButton(isSelectionMode: isSelectionMode) {
@@ -670,7 +684,6 @@ struct AppCleanerView: View {
                         }
                     }
                     
-                    #if os(macOS)
                     ToolbarItem(placement: .primaryAction) {
                         Button(action: {
                             viewModel.loadInstalledApps()
@@ -678,15 +691,12 @@ struct AppCleanerView: View {
                             Label("Aktualisieren", systemImage: "arrow.clockwise")
                         }
                     }
-                    #endif
                 }
         }
         .navigationSplitViewStyle(.balanced)
         .onAppear {
             columnVisibility = .all
-            #if os(macOS)
             viewModel.loadInstalledApps()
-            #endif
         }
         .alert(isPresented: $viewModel.showError) {
             if let action = viewModel.adminFallbackAction {
@@ -719,11 +729,7 @@ struct AppCleanerView: View {
             }
             Button("Abbrechen", role: .cancel) { }
         } message: {
-            #if os(macOS)
             let currentPool = viewModel.foundItems.isEmpty ? viewModel.sortedApps : viewModel.sortedFoundItems
-            #else
-            let currentPool = viewModel.sortedFoundItems
-            #endif
             let selectedItems = currentPool.filter { selectedURLs.contains($0.url) }
             let totalBytes = selectedItems.reduce(Int64(0)) { $0 + $1.size }
             let formatter = ByteCountFormatter()
@@ -815,7 +821,6 @@ struct AppCleanerView: View {
     
     @ViewBuilder
     private var emptyState: some View {
-        #if os(macOS)
         if !viewModel.installedApps.isEmpty {
             VStack(spacing: 0) {
                 HStack {
@@ -948,14 +953,22 @@ struct AppCleanerView: View {
                 }
             }
         } else {
-            Text("Keine Apps gefunden")
+            VStack(spacing: 16) {
+                Image(systemName: "app.badge.minus")
+                    .font(.system(size: 48))
+                    .foregroundColor(.secondary)
+                Text("Keine Apps oder Container gefunden")
+                    .font(.headline)
+                Button("Apps aktualisieren") {
+                    viewModel.loadInstalledApps()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding()
         }
-        #else
-        iosEmptyState
-        #endif
     }
     
-    #if os(macOS)
     @ViewBuilder
     private func macAppRow(for app: StorageItem) -> some View {
         let isAppSelected = selectedURLs.contains(app.url)
@@ -977,9 +990,16 @@ struct AppCleanerView: View {
                 .buttonStyle(.plain)
             }
             
+            #if os(macOS)
             Image(nsImage: NSWorkspace.shared.icon(forFile: app.url.path))
                 .resizable()
                 .frame(width: 32, height: 32)
+            #else
+            Image(systemName: "app.fill")
+                .font(.system(size: 26))
+                .foregroundColor(.blue)
+                .frame(width: 32, height: 32)
+            #endif
             VStack(alignment: .leading) {
                 Text(app.name).font(.headline)
                 Text(app.url.path).font(.caption).foregroundColor(.gray)
@@ -1030,7 +1050,6 @@ struct AppCleanerView: View {
             }
         }
     }
-    #endif
     
     #if !os(macOS)
     @ViewBuilder
@@ -1061,7 +1080,6 @@ struct AppCleanerView: View {
     @ViewBuilder
     private var resultsState: some View {
         VStack(spacing: 0) {
-            #if os(macOS)
             HStack {
                 Button("← Zurück zur App-Liste") {
                     viewModel.foundItems = []
@@ -1077,7 +1095,6 @@ struct AppCleanerView: View {
             }
             .padding(.horizontal)
             .padding(.vertical, 6)
-            #endif
             
             switch viewModel.finderViewMode {
             case .list:
