@@ -875,3 +875,123 @@ struct SidebarTrashSectionView: View {
     }
 }
 #endif
+
+
+// MARK: - Onboarding Notification
+
+extension Notification.Name {
+    static let showOnboardingTutorial = Notification.Name("showOnboardingTutorial")
+}
+
+// MARK: - Onboarding Tutorial View
+
+struct OnboardingTutorialView: View {
+    let onDismiss: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 24) {
+            VStack(spacing: 8) {
+                #if os(macOS)
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 72, height: 72)
+                    .shadow(color: .accentColor.opacity(0.3), radius: 10, y: 5)
+                #else
+                Image(systemName: "sparkles")
+                    .font(.system(size: 60))
+                    .foregroundColor(.accentColor)
+                #endif
+                
+                Text("Willkommen bei iSweep")
+                    .font(.system(size: 26, weight: .bold))
+                
+                Text("Deine intelligente All-in-One Suite für maximale Performance und freien Speicherplatz.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
+            .padding(.top, 24)
+            
+            VStack(alignment: .leading, spacing: 16) {
+                featureRow(
+                    icon: "sparkles",
+                    color: .purple,
+                    title: "1-Klick Smart-Bereinigung",
+                    description: "Analysiert Caches, Logs, Xcode-Builds und Mail-Downloads in Sekunden."
+                )
+                
+                featureRow(
+                    icon: "doc.on.doc.fill",
+                    color: .blue,
+                    title: "Intelligenter Duplikate-Finder",
+                    description: "Findet identische Dateien per SHA-256 Prüfsumme. Originale bleiben sicher erhalten."
+                )
+                
+                featureRow(
+                    icon: "app.badge.minus",
+                    color: .orange,
+                    title: "App-Deinstaller & Verwaiste Reste",
+                    description: "Entfernt Programme samt aller versteckten Support-Dateien rückstandslos."
+                )
+                
+                featureRow(
+                    icon: "gauge.with.dots.needle.bottom.50percent",
+                    color: .green,
+                    title: "Live SSD- & RAM-Monitor",
+                    description: "Echtzeit-Auslastung in der Seitenleiste mit 1-Klick-Arbeitsspeicher-Optimierung."
+                )
+            }
+            .padding(.horizontal, 28)
+            
+            Spacer()
+            
+            VStack(spacing: 12) {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.shield.fill")
+                        .foregroundColor(.green)
+                        .font(.caption)
+                    Text("100% Sicher: Alle Löschaktionen landen zuerst im Papierkorb.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Button(action: onDismiss) {
+                    Text("Jetzt loslegen")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .keyboardShortcut(.defaultAction)
+            }
+            .padding(.horizontal, 28)
+            .padding(.bottom, 24)
+        }
+        #if os(macOS)
+        .frame(width: 520, height: 600)
+        #endif
+    }
+    
+    private func featureRow(icon: String, color: Color, title: String, description: String) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: icon)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundColor(color)
+                .frame(width: 36, height: 36)
+                .background(color.opacity(0.12))
+                .cornerRadius(8)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.bold())
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}

@@ -36,6 +36,11 @@ struct iSweepApp: App {
                     NotificationCenter.default.post(name: .openTrashInFinder, object: nil)
                 }
             }
+            CommandGroup(replacing: .help) {
+                Button("iSweep Einführung & Tutorial…") {
+                    NotificationCenter.default.post(name: .showOnboardingTutorial, object: nil)
+                }
+            }
         }
         #endif
     }

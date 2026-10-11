@@ -2,6 +2,8 @@ import SwiftUI
 
 struct ContentView: View {
     @ObservedObject private var themeManager = ThemeManager.shared
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
+    @State private var showOnboarding: Bool = false
     #if os(macOS)
     @ObservedObject private var trashManager = MacTrashManager.shared
     #else
@@ -88,5 +90,19 @@ struct ContentView: View {
             ApplePencilNotesSheet()
         }
         #endif
+        .sheet(isPresented: $showOnboarding) {
+            OnboardingTutorialView {
+                hasCompletedOnboarding = true
+                showOnboarding = false
+            }
+        }
+        .onAppear {
+            if !hasCompletedOnboarding {
+                showOnboarding = true
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showOnboardingTutorial)) { _ in
+            showOnboarding = true
+        }
     }
 }
