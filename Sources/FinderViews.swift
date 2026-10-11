@@ -358,6 +358,73 @@ struct FinderCardItemView: View {
     }
 }
 
+
+struct AppIconDisplayInfo {
+    let symbol: String
+    let color: Color
+}
+
+func appIconInfo(for name: String) -> AppIconDisplayInfo {
+    let lower = name.replacingOccurrences(of: ".app", with: "").lowercased()
+    if lower.contains("procreate dreams") {
+        return AppIconDisplayInfo(symbol: "sparkles.tv.fill", color: .purple)
+    } else if lower.contains("procreate") {
+        return AppIconDisplayInfo(symbol: "paintbrush.pointed.fill", color: .indigo)
+    } else if lower.contains("goodnotes") {
+        return AppIconDisplayInfo(symbol: "pencil.and.outline", color: .blue)
+    } else if lower.contains("notability") {
+        return AppIconDisplayInfo(symbol: "note.text.badge.plus", color: .cyan)
+    } else if lower.contains("photoshop") || lower.contains("lightroom") || lower.contains("fresco") {
+        return AppIconDisplayInfo(symbol: "photo.artframe", color: .cyan)
+    } else if lower.contains("davinci") || lower.contains("final cut") || lower.contains("imovie") {
+        return AppIconDisplayInfo(symbol: "film.fill", color: .purple)
+    } else if lower.contains("logic") || lower.contains("garageband") {
+        return AppIconDisplayInfo(symbol: "waveform.path.ecg", color: .orange)
+    } else if lower.contains("keynote") || lower.contains("powerpoint") {
+        return AppIconDisplayInfo(symbol: "chart.bar.doc.horizontal.fill", color: .orange)
+    } else if lower.contains("pages") || lower.contains("word") || lower.contains("docs") {
+        return AppIconDisplayInfo(symbol: "doc.text.fill", color: .blue)
+    } else if lower.contains("numbers") || lower.contains("excel") {
+        return AppIconDisplayInfo(symbol: "tablecells.fill", color: .green)
+    } else if lower.contains("youtube") {
+        return AppIconDisplayInfo(symbol: "play.rectangle.fill", color: .red)
+    } else if lower.contains("netflix") {
+        return AppIconDisplayInfo(symbol: "tv.fill", color: .red)
+    } else if lower.contains("disney") {
+        return AppIconDisplayInfo(symbol: "sparkles.tv", color: .blue)
+    } else if lower.contains("spotify") {
+        return AppIconDisplayInfo(symbol: "music.note.list", color: .green)
+    } else if lower.contains("whatsapp") {
+        return AppIconDisplayInfo(symbol: "message.fill", color: .green)
+    } else if lower.contains("telegram") {
+        return AppIconDisplayInfo(symbol: "paperplane.fill", color: .blue)
+    } else if lower.contains("discord") {
+        return AppIconDisplayInfo(symbol: "bubble.left.and.bubble.right.fill", color: .indigo)
+    } else if lower.contains("safari") {
+        return AppIconDisplayInfo(symbol: "safari.fill", color: .blue)
+    } else if lower.contains("fotos") || lower.contains("photo") {
+        return AppIconDisplayInfo(symbol: "photo.stack.fill", color: .pink)
+    } else if lower.contains("kamera") || lower.contains("camera") {
+        return AppIconDisplayInfo(symbol: "camera.fill", color: .gray)
+    } else if lower.contains("dateien") || lower.contains("files") {
+        return AppIconDisplayInfo(symbol: "folder.fill", color: .blue)
+    } else if lower.contains("mail") {
+        return AppIconDisplayInfo(symbol: "envelope.fill", color: .blue)
+    } else if lower.contains("notizen") || lower.contains("notes") {
+        return AppIconDisplayInfo(symbol: "note.text", color: .yellow)
+    } else if lower.contains("karten") || lower.contains("maps") {
+        return AppIconDisplayInfo(symbol: "map.fill", color: .green)
+    } else if lower.contains("musik") || lower.contains("music") {
+        return AppIconDisplayInfo(symbol: "music.note", color: .red)
+    } else if lower.contains("podcasts") {
+        return AppIconDisplayInfo(symbol: "antenna.radiowaves.left.and.right", color: .purple)
+    } else if lower.contains("freeform") {
+        return AppIconDisplayInfo(symbol: "scribble.variable", color: .mint)
+    } else {
+        return AppIconDisplayInfo(symbol: "app.fill", color: .blue)
+    }
+}
+
 struct AppIconItemView: View {
     let app: StorageItem
     var isSelectionMode: Bool = false
@@ -376,9 +443,15 @@ struct AppIconItemView: View {
                     .scaledToFit()
                     .frame(width: 52, height: 52)
                 #else
-                Image(systemName: "app.fill")
-                    .font(.system(size: 44))
-                    .foregroundColor(.blue)
+                let iconInfo = appIconInfo(for: app.name)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(iconInfo.color.gradient)
+                        .frame(width: 52, height: 52)
+                    Image(systemName: iconInfo.symbol)
+                        .font(.system(size: 26, weight: .semibold))
+                        .foregroundColor(.white)
+                }
                 #endif
                 
                 if isSelectionMode {
@@ -390,7 +463,7 @@ struct AppIconItemView: View {
                 }
             }
             
-            Text(app.name)
+            Text(app.name.replacingOccurrences(of: ".app", with: ""))
                 .font(.caption)
                 .fontWeight(.medium)
                 .lineLimit(2)
@@ -486,20 +559,33 @@ struct AppCardItemView: View {
                 .scaledToFit()
                 .frame(width: 44, height: 44)
             #else
-            Image(systemName: "app.fill")
-                .font(.system(size: 36))
-                .foregroundColor(.blue)
+            let iconInfo = appIconInfo(for: app.name)
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(iconInfo.color.gradient)
+                    .frame(width: 44, height: 44)
+                Image(systemName: iconInfo.symbol)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundColor(.white)
+            }
             #endif
             
             VStack(alignment: .leading, spacing: 3) {
-                Text(app.name)
+                Text(app.name.replacingOccurrences(of: ".app", with: ""))
                     .font(.headline)
                     .lineLimit(1)
+                #if os(macOS)
                 Text(app.url.path)
                     .font(.caption2)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
+                #else
+                Text("\(app.formattedSize) • \(app.category.rawValue)")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                #endif
             }
             
             Spacer()
